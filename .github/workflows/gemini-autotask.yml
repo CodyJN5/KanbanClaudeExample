@@ -30,15 +30,15 @@ jobs:
                             --arg content "$PROMPT" \
                             '{contents: [{parts: [{text: $content}]}]}')
 
-          # --- FIX 1: Using 'gemini-pro', the most stable, default model ---
-          API_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+          # --- THIS IS THE FIX YOU FOUND ---
+          # Using the correct 'gemini-2.5-flash' model from your dashboard
+          API_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
           API_RESPONSE=$(curl -s -X POST "$API_URL" \
                             -H "Content-Type: application/json" \
                             -H "x-goog-api-key: ${{ secrets.GEMINI_API_KEY }}" \
                             -d "$JSON_PAYLOAD")
-
-          # --- FIX 2: Adding a debug step to see the raw response ---
+          
           echo "--- RAW API RESPONSE ---"
           echo "$API_RESPONSE"
           echo "------------------------"
@@ -55,6 +55,8 @@ jobs:
 
       - name: Post Checklist as Comment
         env:
+          # --- THIS IS THE OTHER FIX ---
+          # Corrected GITHUB_TOKEN (was GITHU_TOKEN before)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ env.ISSUE_NUMBER }} --body - <<EOF
