@@ -21,7 +21,7 @@ jobs:
           echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
           echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
 
-      - name: Call Gemini API
+      - name: Call Gemini API and Write to File
         id: gemini
         run: |
           PROMPT="You are a helpful project management assistant. Based on the following new task, please provide a concise 'To-Do' checklist in markdown. Task Title: '${{ env.ISSUE_TITLE }}'."
@@ -30,37 +30,32 @@ jobs:
                             --arg content "$PROMPT" \
                             '{contents: [{parts: [{text: $content}]}]}')
 
-          # --- THIS IS THE FIX YOU FOUND ---
-          # Using the correct 'gemini-2.5-flash' model from your dashboard
+          # This is the model name that we know worked
           API_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
           API_RESPONSE=$(curl -s -X POST "$API_URL" \
                             -H "Content-Type: application/json" \
                             -H "x-goog-api-key: ${{ secrets.GEMINI_API_KEY }}" \
                             -d "$JSON_PAYLOAD")
-          
-          echo "--- RAW API RESPONSE ---"
-          echo "$API_RESPONSE"
-          echo "------------------------"
 
           GENERATED_TEXT=$(echo "$API_RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
 
           if [ "$GENERATED_TEXT" == "null" ]; then
             GENERATED_TEXT="Sorry, I couldn't generate a response. API Error: $(echo $API_RESPONSE | jq -r '.error.message')"
           fi
+          
+          # --- THIS IS THE FIX ---
+          # Build the *entire* body string here
+          BODY="**🤖 Gemini Task Breakdown:**
 
-          echo "GEMINI_RESPONSE<<EOF" >> $GITHUB_OUTPUT
-          echo "$GENERATED_TEXT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          $GENERATED_TEXT"
+          
+          # Write the entire body to a file named 'comment-body.txt'
+          echo "$BODY" > comment-body.txt
 
       - name: Post Checklist as Comment
         env:
-          # --- THIS IS THE OTHER FIX ---
-          # Corrected GITHUB_TOKEN (was GITHU_TOKEN before)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue comment ${{ env.ISSUE_NUMBER }} --body - <<EOF
-          **🤖 Gemini Task Breakdown:**
-
-          ${{ steps.gemini.outputs.GEMINI_RESPONSE }}
-          EOF
+          # Use the --body-file flag to read from the file
+          gh issue comment ${{ env.ISSUE_NUMBER }} --body-file comment-body.txt
