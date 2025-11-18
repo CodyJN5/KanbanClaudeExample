@@ -4,7 +4,6 @@ on:
   issues:
     types: [opened]
 
-# We need to add "contents: read" for the new checkout step
 permissions:
   issues: write
   contents: read
@@ -13,10 +12,8 @@ jobs:
   analyze_task:
     runs-on: ubuntu-latest
     steps:
-      # --- THIS IS THE NEW STEP I MISSED ---
       - name: Check out repository
         uses: actions/checkout@v4
-      # -------------------------------------
 
       - name: Get Issue Details
         id: issue_details
@@ -33,7 +30,7 @@ jobs:
                             --arg content "$PROMPT" \
                             '{contents: [{parts: [{text: $content}]}]}')
 
-API_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
+          API_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
                             -H "Content-Type: application/json" \
                             -d "$JSON_PAYLOAD")
 
