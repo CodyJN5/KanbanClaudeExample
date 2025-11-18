@@ -21,7 +21,7 @@ jobs:
           echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
           echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
 
-      - name: Call Vertex AI API (Plan B)
+      - name: Call Gemini API
         id: gemini
         run: |
           PROMPT="You are a helpful project management assistant. Based on the following new task, please provide a concise 'To-Do' checklist in markdown. Task Title: '${{ env.ISSUE_TITLE }}'."
@@ -30,16 +30,15 @@ jobs:
                             --arg content "$PROMPT" \
                             '{contents: [{parts: [{text: $content}]}]}')
 
-          # This is the new Vertex AI endpoint, using your PROJECT_ID
-          API_URL="https://us-central1-aiplatform.googleapis.com/v1/projects/${{ secrets.PROJECT_ID }}/locations/us-central1/publishers/google/models/gemini-2.0-flash:generateContent"
-          
-          # We use x-goog-api-key for the header instead of putting it in the URL
+          # --- THIS IS THE FIX YOU FOUND ---
+          # Using the correct 'gemini-2.5-flash' model from your dashboard
+          API_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+
           API_RESPONSE=$(curl -s -X POST "$API_URL" \
-                            -H "Authorization: Bearer ${{ secrets.GEMINI_API_KEY }}" \
                             -H "Content-Type: application/json" \
+                            -H "x-goog-api-key: ${{ secrets.GEMINI_API_KEY }}" \
                             -d "$JSON_PAYLOAD")
 
-          # The response format for Vertex AI is slightly different
           GENERATED_TEXT=$(echo "$API_RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
 
           if [ "$GENERATED_TEXT" == "null" ]; then
@@ -52,10 +51,12 @@ jobs:
 
       - name: Post Checklist as Comment
         env:
+          # Corrected GITHUB_TOKEN (was GITHU_TOKEN before)
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment ${{ env.ISSUE_NUMBER }} --body - <<EOF
-          **🤖 Gemini Task Breakdown (Vertex AI):**
+          **🤖 Gemini Task Breakdown:**
 
           ${{ steps.gemini.outputs.GEMINI_RESPONSE }}
           EOF
+          
