@@ -1,59 +1,52 @@
-# This is the name of your automation
 name: "Gemini Task Breakdown"
 
-# This is the "trigger"
-# It runs ONLY when a new issue is opened
 on:
   issues:
     types: [opened]
 
-# These are the permissions the script needs
+# We need to add "contents: read" for the new checkout step
 permissions:
   issues: write
+  contents: read
 
-# This is the "job" or the set of steps to run
 jobs:
   analyze_task:
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Get the issue title and number
+      # --- THIS IS THE NEW STEP I MISSED ---
+      - name: Check out repository
+        uses: actions/checkout@v4
+      # -------------------------------------
+
       - name: Get Issue Details
         id: issue_details
         run: |
           echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
           echo "ISSUE_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
 
-      # Step 2: Call the Gemini API to get a checklist
       - name: Call Gemini API
         id: gemini
         run: |
-          # Create a clear prompt for the AI
           PROMPT="You are a helpful project management assistant. Based on the following new task, please provide a concise 'To-Do' checklist in markdown. Task Title: '${{ env.ISSUE_TITLE }}'."
           
-          # Build the JSON payload for the API
           JSON_PAYLOAD=$(jq -n \
                             --arg content "$PROMPT" \
                             '{contents: [{parts: [{text: $content}]}]}')
 
-          # Call the API using curl (a command-line web tool)
           API_RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
                             -H "Content-Type: application/json" \
                             -d "$JSON_PAYLOAD")
 
-          # Neatly extract just the text response
           GENERATED_TEXT=$(echo "$API_RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
 
-          # This is a safety check for errors
           if [ "$GENERATED_TEXT" == "null" ]; then
             GENERATED_TEXT="Sorry, I couldn't generate a response. API Error: $(echo $API_RESPONSE | jq -r '.error.message')"
           fi
 
-          # This is a special way to save the (potentially multi-line) response for the next step
           echo "GEMINI_RESPONSE<<EOF" >> $GITHUB_OUTPUT
           echo "$GENERATED_TEXT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      # Step 3: Post the AI's response as a comment on the issue
       - name: Post Checklist as Comment
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
