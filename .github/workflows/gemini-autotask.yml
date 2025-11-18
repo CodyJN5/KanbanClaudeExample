@@ -48,6 +48,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue comment ${{ env.ISSUE_NUMBER }} --body "**🤖 Gemini Task Breakdown:**
+          gh issue comment ${{ env.ISSUE_NUMBER }} --body - <<EOF
+          **🤖 Gemini Task Breakdown:**
 
-          ${{ steps.gemini.outputs.GEMINI_RESPONSE }}"
+          ${{ steps.gemini.outputs.GEMINI_RESPONSE }}
+          EOF
