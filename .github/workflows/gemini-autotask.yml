@@ -24,14 +24,14 @@ jobs:
       - name: Call Gemini API and Write to File
         id: gemini
         run: |
-          # The prompt is set to return only a checklist for the health project
-          PROMPT="Analyze the following task for a health informatics project and provide only a Markdown checklist of 3-5 technical subtasks. Do not include an introduction or conclusion. Task Title: '${{ env.ISSUE_TITLE }}'."
+          # Simplified prompt to get just the subtasks
+          PROMPT="Analyze the following task and provide only a Markdown checklist of 3-5 technical subtasks. Do not include an introduction. Task Title: '${{ env.ISSUE_TITLE }}'."
           
           JSON_PAYLOAD=$(jq -n \
                             --arg content "$PROMPT" \
                             '{contents: [{parts: [{text: $content}]}]}')
 
-          # Use the stable flash model for fast response
+          # Use the 1.5-flash model which is the current stable free-tier model
           API_URL="https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
           API_RESPONSE=$(curl -s -X POST "$API_URL" \
@@ -42,12 +42,12 @@ jobs:
           GENERATED_TEXT=$(echo "$API_RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
 
           if [ "$GENERATED_TEXT" == "null" ]; then
-            GENERATED_TEXT="Error generating subtasks. Please check API key and GitHub Action logs."
+            # This helps you see the ACTUAL error from Google in your logs
+            GENERATED_TEXT="Sorry, I couldn't generate a response. API Error: $(echo $API_RESPONSE | jq -r '.error.message')"
           fi
           
-          # Build the comment body
-          BODY="### 🛠 Suggested Subtasks
-          
+          BODY="**🤖 Gemini Task Breakdown:**
+
           $GENERATED_TEXT"
           
           echo "$BODY" > comment-body.txt
@@ -56,5 +56,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Uses the GitHub CLI to post the file content as a comment
           gh issue comment ${{ env.ISSUE_NUMBER }} --body-file comment-body.txt
