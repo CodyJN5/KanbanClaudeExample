@@ -24,14 +24,15 @@ jobs:
       - name: Call Gemini API and Write to File
         id: gemini
         run: |
-          PROMPT="Analyze the following task and provide a Markdown checklist of 3-5 subtasks. Task Title: '${{ env.ISSUE_TITLE }}'."
+          PROMPT="Analyze the following task for a health informatics project and provide a Markdown checklist of 3-5 technical subtasks. Do not include an intro. Task Title: '${{ env.ISSUE_TITLE }}'."
           
-          # We've put this on one line to avoid the 'command not found' error
+          # Single-line JSON creation to avoid shell errors
           JSON_PAYLOAD=$(jq -n --arg content "$PROMPT" '{contents: [{parts: [{text: $content}]}]}')
 
-          # Using the v1 stable endpoint which is more reliable for Flash
-          API_URL="https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+          # Use the -latest alias which is the most reliable for the v1 endpoint
+          API_URL="https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent"
 
+          # Single-line API call
           API_RESPONSE=$(curl -s -X POST "$API_URL" -H "Content-Type: application/json" -H "x-goog-api-key: ${{ secrets.GEMINI_API_KEY }}" -d "$JSON_PAYLOAD")
 
           GENERATED_TEXT=$(echo "$API_RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
